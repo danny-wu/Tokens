@@ -67,29 +67,40 @@ contract ApproveAndCallFallBack {
 // ----------------------------------------------------------------------------
 // Owned contract
 // ----------------------------------------------------------------------------
-contract Owned {
-    address public owner;
-    address public newOwner;
+contract MultiOwned {
+    address[] public owners;
+    mapping (address => bool) public isOwner;
+    mapping (address => bool) public hasReceivedAllocation;
 
-    event OwnershipTransferred(address indexed _from, address indexed _to);
+    event OwnershipAdded(address indexed _added);
+
+    event OwnershipRemoved(address indexed _removed);
 
     constructor() public {
-        owner = msg.sender;
+        owners = [msg.sender];
+        isOwner[msg.sender] = true;
     }
 
-    modifier onlyOwner {
-        require(msg.sender == owner);
+    modifier onlyOwners {
+        require(isOwner[msg.sender]);
         _;
     }
 
-    function transferOwnership(address _newOwner) public onlyOwner {
-        newOwner = _newOwner;
+    function addOwner(address _newOwner) public onlyOwners {
+        isOwner[_newOwner] = true;
+        owners.push(_newOwner);
+        emit OwnershipAdded(_newOwner);
     }
-    function acceptOwnership() public {
-        require(msg.sender == newOwner);
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
-        newOwner = address(0);
+    
+    function removeOwner(address _removedOwner) public onlyOwners  {
+        for (uint i=0; i < owners.length - 1; i++)
+            if (owners[i] == _removedOwner) {
+                owners[i] = owners[owners.length - 1];
+                break;
+            }
+        owners.length -= 1;
+        isOwner[_removedOwner] = false;
+        emit OwnershipRemoved(_removedOwner);
     }
 }
 
@@ -98,7 +109,7 @@ contract Owned {
 // ERC20 Token, with the addition of symbol, name and decimals and a
 // fixed supply
 // ----------------------------------------------------------------------------
-contract FixedSupplyToken is ERC20Interface, Owned {
+contract CoinvaToken is ERC20Interface, MultiOwned {
     using SafeMath for uint;
 
     string public symbol;
@@ -118,8 +129,8 @@ contract FixedSupplyToken is ERC20Interface, Owned {
         name = "Coinva";
         decimals = 2;
         _totalSupply = 2500000000 * 10**uint(decimals);
-        balances[owner] = _totalSupply;
-        emit Transfer(address(0), owner, _totalSupply);
+        balances[address(this)] = _totalSupply;
+        emit Transfer(address(0), address(this), _totalSupply);
     }
 
 
@@ -150,7 +161,21 @@ contract FixedSupplyToken is ERC20Interface, Owned {
         emit Transfer(msg.sender, to, tokens);
         return true;
     }
-
+    
+    // ------------------------------------------------------------------------
+    // Distribute 1% of the owner's balance to the `to` account
+    // ------------------------------------------------------------------------
+    function distributeToken(address to) public onlyOwners returns (bool success) {
+        if (hasReceivedAllocation[to])
+            revert("already received allocation");
+        
+        hasReceivedAllocation[to] = true;
+        uint allocation = balances[address(this)].div(100); // 1%
+        balances[address(this)] = balances[address(this)].sub(allocation);
+        balances[to] = balances[to].add(allocation);
+        emit Transfer(address(this), to, allocation);
+        return true;
+    }
 
     // ------------------------------------------------------------------------
     // Token owner can approve for `spender` to transferFrom(...) `tokens`
@@ -218,7 +243,7 @@ contract FixedSupplyToken is ERC20Interface, Owned {
     // ------------------------------------------------------------------------
     // Owner can transfer out any accidentally sent ERC20 tokens
     // ------------------------------------------------------------------------
-    function transferAnyERC20Token(address tokenAddress, uint tokens) public onlyOwner returns (bool success) {
-        return ERC20Interface(tokenAddress).transfer(owner, tokens);
+    function transferAnyERC20Token(address tokenAddress, uint tokens) public onlyOwners returns (bool success) {
+        return ERC20Interface(tokenAddress).transfer(msg.sender, tokens);
     }
 }

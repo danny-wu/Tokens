@@ -3,10 +3,10 @@ pragma solidity ^0.5.0;
 // ----------------------------------------------------------------------------
 // 'FIXED' 'Example Fixed Supply Token' token contract
 //
-// Symbol      : FIXED
-// Name        : Example Fixed Supply Token
-// Total supply: 1,000,000.000000000000000000
-// Decimals    : 18
+// Symbol      : COINVA
+// Name        : Coinva
+// Total supply: 2,500,000,000.00
+// Decimals    : 2
 //
 // Enjoy.
 //
@@ -114,10 +114,10 @@ contract FixedSupplyToken is ERC20Interface, Owned {
     // Constructor
     // ------------------------------------------------------------------------
     constructor() public {
-        symbol = "FIXED";
-        name = "Example Fixed Supply Token";
-        decimals = 18;
-        _totalSupply = 1000000 * 10**uint(decimals);
+        symbol = "COINVA";
+        name = "Coinva";
+        decimals = 2;
+        _totalSupply = 2500000000 * 10**uint(decimals);
         balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
     }
